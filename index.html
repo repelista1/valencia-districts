@@ -8,6 +8,21 @@
 body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:24px;background:#faf9f5;color:#1a1a17}
 @media(prefers-color-scheme:dark){body{background:#1f1e1b;color:#e8e6dd}.tip{background:#2c2b27!important;color:#e8e6dd!important;border-color:#55534c!important}}
 h1{font-size:22px;font-weight:500}
+.search{position:relative;margin:4px 0 14px;max-width:340px}
+#q{width:100%;box-sizing:border-box;padding:9px 12px;font-size:14px;border:1px solid #c9c7bd;border-radius:8px;background:#fff;color:inherit;outline:none}
+#q:focus{border-color:#7a786f;box-shadow:0 0 0 3px rgba(120,118,108,.15)}
+#sug{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #c9c7bd;border-radius:8px;margin-top:4px;box-shadow:0 4px 14px rgba(0,0,0,.14);z-index:6;display:none;max-height:262px;overflow:auto}
+#sug div{padding:8px 12px;cursor:pointer;font-size:14px}
+#sug div:hover,#sug div.act{background:#efede4}
+#sug .none{color:#8a887f;cursor:default}
+svg path.dim{fill-opacity:.12}
+svg path.hit{stroke:#15140f;stroke-width:2.2}
+@media(prefers-color-scheme:dark){
+#q{background:#2c2b27;border-color:#55534c}
+#sug{background:#2c2b27;border-color:#55534c}
+#sug div:hover,#sug div.act{background:#3a3934}
+svg path.hit{stroke:#fff}
+}
 #wrap{position:relative;max-width:820px;margin:0 auto}
 svg{stroke:#8a887f;stroke-width:0.7;stroke-linejoin:round;cursor:crosshair;width:100%;height:auto}
 svg path:hover{stroke:#111;stroke-width:2}
@@ -20,6 +35,10 @@ svg path:hover{stroke:#111;stroke-width:2}
 <body>
 <div id="wrap">
 <h1>Районы Валенсии — рейтинг</h1>
+<div class="search">
+<input id="q" type="text" placeholder="Найти район… (например: carr)" autocomplete="off" spellcheck="false">
+<div id="sug"></div>
+</div>
 <svg viewBox="0 0 680 621" xmlns="http://www.w3.org/2000/svg">
 <path d="M224 346 202 388 183 368 189 362 184 358 197 348 224 346Z" fill="#E3B505" fill-opacity="0.8" data-n="Barrio de Favara" data-r="Обычный рабочий квартал в районе Patraix без криминальной репутации. Скромный жилфонд, тихая жилая среда."/>
 <path d="M224 346 248 363 253 364 252 371 233 367 227 402 195 402 224 346Z" fill="#E3B505" fill-opacity="0.8" data-n="L'Hort de Senabre" data-r="Рабочий квартал в Jesús между La Raiosa и La Creu Coberta. Без особой славы, скромно и тихо."/>
@@ -97,26 +116,90 @@ svg path:hover{stroke:#111;stroke-width:2}
 </svg>
 <div class="tip" id="tip"></div>
 <div class="legend">
-<span><span class="sw" style="background:#2E7D32"></span>отлично</span>
-<span><span class="sw" style="background:#8BC34A"></span>хорошо</span>
-<span><span class="sw" style="background:#E3B505"></span>средне</span>
-<span><span class="sw" style="background:#D85A30"></span>посредственно</span>
-<span><span class="sw" style="background:#C62828"></span>плохо</span>
+<span><span class="sw" style="background:#2E7D32"></span>💚 отлично</span>
+<span><span class="sw" style="background:#8BC34A"></span>💛💚 хорошо</span>
+<span><span class="sw" style="background:#E3B505"></span>💛 средне</span>
+<span><span class="sw" style="background:#D85A30"></span>❤️💛/🧡 посредственно</span>
+<span><span class="sw" style="background:#C62828"></span>❤️ плохо</span>
 </div>
 </div>
 <script>
-var tip=document.getElementById('tip');
-document.querySelector('svg').addEventListener('mousemove',function(e){
+var tip=document.getElementById('tip'),svg=document.querySelector('svg');
+var q=document.getElementById('q'),sug=document.getElementById('sug');
+var paths=[].slice.call(svg.querySelectorAll('path[data-n]'));
+var pinned=false;
+
+function showTip(el,x,y){
+  tip.innerHTML='<b style="font-weight:600">'+el.dataset.n+'</b><br>'+el.dataset.r;
+  if(x>innerWidth-320)x=Math.max(8,x-335);
+  if(y>innerHeight-120)y-=135;
+  tip.style.left=x+'px';tip.style.top=y+'px';tip.style.display='block';
+}
+svg.addEventListener('mousemove',function(e){
   var t=e.target;
-  if(t.tagName==='path'&&t.dataset.n){
-    tip.innerHTML='<b style="font-weight:600">'+t.dataset.n+'</b><br>'+t.dataset.r;
-    var x=e.clientX+14,y=e.clientY+14;
-    if(x>innerWidth-320)x=Math.max(8,x-335);
-    if(y>innerHeight-120)y-=135;
-    tip.style.left=x+'px';tip.style.top=y+'px';tip.style.display='block';
-  } else tip.style.display='none';
+  if(t.tagName==='path'&&t.dataset.n){pinned=false;showTip(t,e.clientX+14,e.clientY+14);}
+  else if(!pinned)tip.style.display='none';
 });
-document.querySelector('svg').addEventListener('mouseleave',function(){tip.style.display='none'});
+svg.addEventListener('mouseleave',function(){if(!pinned)tip.style.display='none'});
+
+// ---- префиксный поиск ----
+function norm(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[·'’.()\/]/g,' ').replace(/\s+/g,' ').trim();}
+var idx=paths.map(function(p){var k=norm(p.dataset.n);return{p:p,n:p.dataset.n,k:k,w:k.split(' ')};});
+var act=-1,cur=[];
+
+function clearHi(){paths.forEach(function(p){p.classList.remove('hit','dim');});pinned=false;tip.style.display='none';}
+function highlight(list){
+  clearHi();
+  if(!list.length)return;
+  var set=new Set(list.map(function(it){return it.p;}));
+  paths.forEach(function(p){p.classList.add(set.has(p)?'hit':'dim');if(set.has(p))p.parentNode.appendChild(p);});
+}
+function select(it){
+  highlight([it]);
+  q.value=it.n;sug.style.display='none';
+  var r=it.p.getBoundingClientRect();
+  if(r.bottom<0||r.top>innerHeight)it.p.scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(function(){
+    var r2=it.p.getBoundingClientRect();
+    pinned=true;showTip(it.p,r2.left+r2.width/2,r2.top+r2.height/2);
+  },60);
+}
+function matches(query){
+  var s=norm(query);
+  if(!s)return[];
+  return idx.filter(function(it){return it.k.indexOf(s)===0||it.w.some(function(w){return w.indexOf(s)===0;});});
+}
+function renderSug(list){
+  act=-1;
+  if(!q.value.trim()){sug.style.display='none';return;}
+  if(!list.length){sug.innerHTML='<div class="none">Ничего не найдено</div>';sug.style.display='block';return;}
+  sug.innerHTML=list.slice(0,9).map(function(it,i){return '<div data-i="'+i+'">'+it.n+'</div>';}).join('');
+  sug.style.display='block';
+  [].forEach.call(sug.children,function(el){
+    el.addEventListener('mousedown',function(e){e.preventDefault();select(cur[+el.dataset.i]);});
+  });
+}
+q.addEventListener('input',function(){
+  cur=matches(q.value);
+  highlight(cur);
+  renderSug(cur);
+});
+q.addEventListener('keydown',function(e){
+  var items=sug.querySelectorAll('div[data-i]');
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    if(!items.length)return;
+    act=e.key==='ArrowDown'?(act+1)%items.length:(act-1+items.length)%items.length;
+    [].forEach.call(items,function(el,i){el.classList.toggle('act',i===act);});
+    items[act].scrollIntoView({block:'nearest'});
+  } else if(e.key==='Enter'){
+    if(cur.length)select(cur[Math.max(0,act)]);
+  } else if(e.key==='Escape'){
+    q.value='';cur=[];clearHi();sug.style.display='none';q.blur();
+  }
+});
+q.addEventListener('blur',function(){setTimeout(function(){sug.style.display='none';},150);});
+q.addEventListener('focus',function(){if(q.value.trim()){cur=matches(q.value);renderSug(cur);}});
 </script>
 </body>
 </html>
