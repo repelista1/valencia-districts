@@ -14,13 +14,7 @@
 
 ***Свежая аналитика (полицейская статистика, данные страховщиков UNESPA, рейтинги безопасности, отчёты по окупас за 2025–2026)***
 
----
-
-## Interactive Map
-
-Наведи курсор на район — появится нативный тултип с названием и оценкой (работает в VS Code preview, Obsidian, Typora и в браузере; GitHub инлайн-SVG вырезает — для GitHub смотри [valencia_map.html](./valencia_map.html)).
-
-Полная интерактивная версия с подсветкой районов: **[valencia_map.html](./valencia_map.html)**
+***Открыть [Карту](https://repelista1.github.io/valencia-districts/)***
 
 ## 1. All Districts and Neighborhoods of Valencia (A–Z)
 
