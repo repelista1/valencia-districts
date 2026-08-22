@@ -11,8 +11,10 @@ h1{font-size:22px;font-weight:500;margin:0 0 12px}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:4px 0 14px}
 #city{padding:9px 12px;font-size:14px;border:1px solid #c9c7bd;border-radius:8px;background:#fff;color:inherit;outline:none;cursor:pointer}
 .search{position:relative;flex:1;min-width:220px;max-width:340px}
-#q{width:100%;box-sizing:border-box;padding:9px 12px;font-size:14px;border:1px solid #c9c7bd;border-radius:8px;background:#fff;color:inherit;outline:none}
+#q{width:100%;box-sizing:border-box;padding:9px 32px 9px 12px;font-size:14px;border:1px solid #c9c7bd;border-radius:8px;background:#fff;color:inherit;outline:none}
 #q:focus{border-color:#7a786f;box-shadow:0 0 0 3px rgba(120,118,108,.15)}
+#clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:20px;height:20px;line-height:19px;text-align:center;border-radius:50%;color:#8a887f;cursor:pointer;display:none;font-size:17px;user-select:none}
+#clr:hover{background:#efede4;color:#1a1a17}
 #sug{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #c9c7bd;border-radius:8px;margin-top:4px;box-shadow:0 4px 14px rgba(0,0,0,.14);z-index:6;display:none;max-height:262px;overflow:auto}
 #sug div{padding:8px 12px;cursor:pointer;font-size:14px}
 #sug div:hover,#sug div.act{background:#efede4}
@@ -24,6 +26,7 @@ svg path.hit{stroke:#15140f;stroke-width:2.2}
 #q{background:#2c2b27;border-color:#55534c}
 #sug{background:#2c2b27;border-color:#55534c}
 #sug div:hover,#sug div.act{background:#3a3934}
+#clr:hover{background:#3a3934;color:#e8e6dd}
 svg path.hit{stroke:#fff}
 }
 #wrap{position:relative;max-width:820px;margin:0 auto}
@@ -42,6 +45,7 @@ svg path:hover{stroke:#111;stroke-width:2}
 <select id="city"></select>
 <div class="search">
 <input id="q" type="text" placeholder="Найти район…" autocomplete="off" spellcheck="false">
+<span id="clr" title="Очистить" aria-label="Очистить">&times;</span>
 <div id="sug"></div>
 </div>
 </div>
@@ -61,7 +65,9 @@ var ORDER=["valencia", "malaga"];
 var SVGNS='http://www.w3.org/2000/svg';
 var tip=document.getElementById('tip'),svg=document.getElementById('map');
 var q=document.getElementById('q'),sug=document.getElementById('sug'),sel=document.getElementById('city');
+var clr=document.getElementById('clr');
 var title=document.getElementById('title');
+function toggleClr(){clr.style.display=q.value?'block':'none';}
 var paths=[],idx=[],cur=[],act=-1,pinned=false;
 
 function norm(s){return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[·'’.()\/-]/g,' ').replace(/\s+/g,' ').trim();}
@@ -81,7 +87,7 @@ function highlight(list){
 }
 function select(it){
   highlight([it]);
-  q.value=it.n;sug.style.display='none';
+  q.value=it.n;sug.style.display='none';toggleClr();
   var r=it.p.getBoundingClientRect();
   if(r.bottom<0||r.top>innerHeight)it.p.scrollIntoView({behavior:'smooth',block:'center'});
   setTimeout(function(){
@@ -116,7 +122,7 @@ function buildCity(key){
     svg.appendChild(el);paths.push(el);
   });
   idx=paths.map(function(p){var k=norm(p.dataset.n);return{p:p,n:p.dataset.n,k:k,w:k.split(' ')};});
-  cur=[];act=-1;q.value='';sug.style.display='none';clearHi();
+  cur=[];act=-1;q.value='';sug.style.display='none';clearHi();toggleClr();
 }
 
 svg.addEventListener('mousemove',function(e){
@@ -125,7 +131,7 @@ svg.addEventListener('mousemove',function(e){
   else if(!pinned)tip.style.display='none';
 });
 svg.addEventListener('mouseleave',function(){if(!pinned)tip.style.display='none'});
-q.addEventListener('input',function(){cur=matches(q.value);highlight(cur);renderSug(cur);});
+q.addEventListener('input',function(){cur=matches(q.value);highlight(cur);renderSug(cur);toggleClr();});
 q.addEventListener('keydown',function(e){
   var items=sug.querySelectorAll('div[data-i]');
   if(e.key==='ArrowDown'||e.key==='ArrowUp'){
@@ -137,8 +143,12 @@ q.addEventListener('keydown',function(e){
   } else if(e.key==='Enter'){
     if(cur.length)select(cur[Math.max(0,act)]);
   } else if(e.key==='Escape'){
-    q.value='';cur=[];clearHi();sug.style.display='none';q.blur();
+    q.value='';cur=[];clearHi();sug.style.display='none';toggleClr();q.blur();
   }
+});
+clr.addEventListener('mousedown',function(e){
+  e.preventDefault();
+  q.value='';cur=[];act=-1;clearHi();sug.style.display='none';toggleClr();q.focus();
 });
 q.addEventListener('blur',function(){setTimeout(function(){sug.style.display='none';},150);});
 q.addEventListener('focus',function(){if(q.value.trim()){cur=matches(q.value);renderSug(cur);}});
